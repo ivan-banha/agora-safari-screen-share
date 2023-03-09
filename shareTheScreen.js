@@ -12,10 +12,11 @@ var localTracks = {
 var remoteUsers = {};
 // Agora client options
 var options = {
-  appid: "",
+  appid: "9171e967e47d4b4e999d2135338a6c29",
   channel: "510e853c-d474-41a2-a7c0-4167f2d5972b",
   uid: "510e853c-d474-41a2-a7c0-4167f2d5972c",
-  token: "",
+  token:
+    "007eJxTYOiqe1UxV10geN32Fbq2B2vmVuU/TNy7+k+MjLel4OfW240KDJaG5oaplmbmqSbmKSZJJqmWlpYpRobGpsbGFolmyUaWk3o5UxoCGRmeRlxgZWSAQBBfhcHU0CDVwtQ4WTfFxNxE18Qw0Ug30TzZAMgyM08zSjG1NDdKYmAAANZwJvk=Ï",
 };
 
 // the demo can auto join channel with params in url
@@ -57,33 +58,32 @@ $("#join-form").submit(async function (e) {
       );
       $("#success-alert").css("display", "block");
     }
+    $("#share-screen").attr("disabled", false);
   } catch (error) {
     console.error(error);
   } finally {
     $("#leave").attr("disabled", false);
   }
 });
+
 $("#leave").click(function (e) {
   leave();
 });
 
-async function join() {
-  // add event listener to play remote tracks when remote user publishs.
-  client.on("user-published", handleUserPublished);
-  client.on("user-unpublished", handleUserUnpublished);
+$("#share-screen").click(() => {
+  shareScreen();
+});
+
+$("#stop-sharing").click(() => {
+  stopSharing();
+});
+
+async function shareScreen() {
   let screenTrack;
 
-  // join a channel and create local tracks, we can use Promise.all to run them concurrently
-  [options.uid, localTracks.audioTrack, screenTrack] = await Promise.all([
-    // join the channel
-    client.join(
-      options.appid,
-      options.channel,
-      options.token || null,
-      options.uid || null
-    ),
-
-    // ** create local tracks, using microphone and screen
+  console.debug("start creating tracks");
+  // ** create local tracks, using microphone and screen
+  [localTracks.audioTrack, screenTrack] = await Promise.all([
     AgoraRTC.createMicrophoneAudioTrack({
       encoderConfig: "music_standard",
     }),
@@ -105,6 +105,8 @@ async function join() {
       "auto"
     ),
   ]);
+
+  console.debug("created tracks");
 
   if (screenTrack instanceof Array) {
     localTracks.screenVideoTrack = screenTrack[0];
@@ -139,12 +141,15 @@ async function join() {
       localTracks.audioTrack,
       localTracks.screenAudioTrack,
     ]);
+    console.debug("shareScreen");
   }
-  console.log("publish success");
+
+  $("#share-screen").attr("disabled", true);
+  $("#stop-sharing").attr("disabled", false);
 }
 
-async function leave() {
-  for (trackName in localTracks) {
+async function stopSharing() {
+  for (const trackName in localTracks) {
     var track = localTracks[trackName];
     if (track) {
       track.stop();
@@ -153,15 +158,48 @@ async function leave() {
     }
   }
 
+  await client.unpublish();
+  // await client.leave();
   // remove remote users and player views
-  remoteUsers = {};
+  console.debug("stopSharing", localTracks);
+  $("#local-player-name").text("");
+  $("#stop-sharing").attr("disabled", true);
+  $("#share-screen").attr("disabled", false);
+}
+
+async function join() {
+  // add event listener to play remote tracks when remote user publishs.
+  client.on("user-published", handleUserPublished);
+  client.on("user-unpublished", handleUserUnpublished);
+
+  // join a channel
+  options.uid = await client.join(
+    options.appid,
+    options.channel,
+    options.token || null,
+    options.uid || null
+  );
+  console.log("publish success");
+}
+
+async function leave() {
   $("#remote-playerlist").html("");
+
+  if (
+    localTracks.audioTrack ||
+    localTracks.screenVideoTrack ||
+    localTracks.screenAudioTrack
+  ) {
+    await stopSharing();
+  }
 
   // leave the channel
   await client.leave();
-  $("#local-player-name").text("");
+  remoteUsers = {};
   $("#join").attr("disabled", false);
   $("#leave").attr("disabled", true);
+  $("#share-screen").attr("disabled", true);
+  $("#stop-sharing").attr("disabled", true);
   console.log("client leaves channel success");
 }
 
@@ -179,6 +217,9 @@ async function subscribe(user, mediaType) {
         <div id="player-${uid}" class="player"></div>
       </div>
     `);
+
+    console.debug("append player");
+
     $("#remote-playerlist").append(player);
     user.videoTrack.play(`player-${uid}`);
   }
