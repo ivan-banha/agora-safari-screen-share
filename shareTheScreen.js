@@ -1,9 +1,12 @@
 // create Agora client
 var client = AgoraRTC.createClient({
-  mode: "rtc",
+  mode: "live",
   codec: "vp8",
 });
+
+AgoraRTC.setLogLevel(0);
 AgoraRTC.enableLogUpload();
+
 var localTracks = {
   screenVideoTrack: null,
   audioTrack: null,
@@ -12,11 +15,10 @@ var localTracks = {
 var remoteUsers = {};
 // Agora client options
 var options = {
-  appid: "9171e967e47d4b4e999d2135338a6c29",
-  channel: "510e853c-d474-41a2-a7c0-4167f2d5972b",
-  uid: "510e853c-d474-41a2-a7c0-4167f2d5972c",
-  token:
-    "007eJxTYOiqe1UxV10geN32Fbq2B2vmVuU/TNy7+k+MjLel4OfW240KDJaG5oaplmbmqSbmKSZJJqmWlpYpRobGpsbGFolmyUaWk3o5UxoCGRmeRlxgZWSAQBBfhcHU0CDVwtQ4WTfFxNxE18Qw0Ug30TzZAMgyM08zSjG1NDdKYmAAANZwJvk=Ï",
+  appid: "",
+  channel: "47b4458d-1f35-40ae-af23-1968138f96ee",
+  token: "",
+  uid: "5432",
 };
 
 // the demo can auto join channel with params in url
@@ -46,6 +48,8 @@ $("#join-form").submit(async function (e) {
     options.uid = Number($("#uid").val());
     options.appid = $("#appid").val();
     options.token = $("#token").val();
+
+    console.debug("options", options);
 
     await join();
 
@@ -102,7 +106,7 @@ async function shareScreen() {
           frameRate: 30,
         },
       },
-      "auto"
+      "disable"
     ),
   ]);
 
@@ -172,6 +176,7 @@ async function join() {
   client.on("user-published", handleUserPublished);
   client.on("user-unpublished", handleUserUnpublished);
 
+  await client.setClientRole("host");
   // join a channel
   options.uid = await client.join(
     options.appid,
